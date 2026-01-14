@@ -1,91 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-interface SensoryBaseline {
-  exemplary_chapters: string[];
-  richness_threshold: number;
-  target_sensory_palette?: {
-    fire?: string;
-    cold?: string;
-    documentation?: string;
-    touch?: string;
-    light?: string;
-  };
-}
-
-interface FlaggedChapter {
-  chapter: number;
-  section?: string;
-  issue: string;
-  type: "Underwritten sensory detail" | "Show-don't-tell" | "Sensory foreshadowing opportunity";
-}
-
-interface AuditInput {
-  manuscript_text: string;
-  sensory_baseline: SensoryBaseline;
-  chapters_flagged_for_enrichment?: FlaggedChapter[];
-}
-
-interface AuditResult {
-  sensory_fingerprint: {
-    favored_senses: string[];
-    syntax_signature: string;
-    vocabulary_preference: string;
-    metaphor_type: string;
-    sensory_density_per_page: string;
-    baseline_richness_score: number;
-  };
-  exemplary_passages_analyzed: {
-    source: string;
-    quote: string;
-    sensory_breakdown: Record<string, number>;
-    richness_score: number;
-  }[];
-  richness_scorecard: {
-    chapter: number;
-    section: string;
-    baseline: number;
-    your_score: number;
-    status: string;
-    key_sensory_gaps: string[];
-  }[];
-  summary: {
-    chapters_at_baseline: number;
-    chapters_below_baseline: number[];
-    consistent_weak_points: string;
-  };
-  motif_mapping: Record<string, {
-    chapters_present: {
-      incarnation: string;
-      chapter: number;
-      presence: string;
-      description: string;
-    }[];
-    echo_planting_opportunities: {
-      chapter: number;
-      reason: string;
-      suggested_revision: string;
-    }[];
-  }>;
-  per_passage: {
-    source: string;
-    current_telling_text: string;
-    what_is_conveyed: string;
-    problems: string[];
-    alternative_revisions: {
-      alternative_number: number;
-      approach: string;
-      revised_text: string;
-      why_this_works: string[];
-    }[];
-  }[];
-  interactive_map_html: string;
-  audit_report_md: string;
-  enrichment_toolkit_md: string;
-  revisions_md: string;
-  roadmap_csv: string;
-}
+import { AuditInput, AuditResult, SensoryBaseline, RichnessScorecard } from "@/types/audit";
 
 export default function InputForm() {
   const [input, setInput] = useState<AuditInput>({
@@ -116,15 +32,15 @@ export default function InputForm() {
     }
   };
 
-  const updateBaseline = (field: keyof SensoryBaseline, value: string | number | Record<string, string>) => {
-    setInput(prev => ({
+  const updateBaseline = <K extends keyof SensoryBaseline>(field: K, value: SensoryBaseline[K]) => {
+    setInput((prev: AuditInput) => ({
       ...prev,
       sensory_baseline: { ...prev.sensory_baseline, [field]: value }
     }));
   };
 
   const addExemplaryChapter = () => {
-    setInput(prev => ({
+    setInput((prev: AuditInput) => ({
       ...prev,
       sensory_baseline: {
         ...prev.sensory_baseline,
@@ -134,21 +50,21 @@ export default function InputForm() {
   };
 
   const updateExemplaryChapter = (index: number, value: string) => {
-    setInput(prev => ({
+    setInput((prev: AuditInput) => ({
       ...prev,
       sensory_baseline: {
         ...prev.sensory_baseline,
-        exemplary_chapters: prev.sensory_baseline.exemplary_chapters.map((chap, i) => i === index ? value : chap)
+        exemplary_chapters: prev.sensory_baseline.exemplary_chapters.map((chap: string, i: number) => i === index ? value : chap)
       }
     }));
   };
 
   const removeExemplaryChapter = (index: number) => {
-    setInput(prev => ({
+    setInput((prev: AuditInput) => ({
       ...prev,
       sensory_baseline: {
         ...prev.sensory_baseline,
-        exemplary_chapters: prev.sensory_baseline.exemplary_chapters.filter((_, i) => i !== index)
+        exemplary_chapters: prev.sensory_baseline.exemplary_chapters.filter((_: string, i: number) => i !== index)
       }
     }));
   };
@@ -163,7 +79,7 @@ export default function InputForm() {
           <label className="block text-sm font-medium mb-2">Manuscript Text</label>
           <textarea
             value={input.manuscript_text}
-            onChange={(e) => setInput(prev => ({ ...prev, manuscript_text: e.target.value }))}
+            onChange={(e) => setInput((prev: AuditInput) => ({ ...prev, manuscript_text: e.target.value }))}
             className="w-full h-64 p-3 border rounded-md"
             placeholder="Paste your full manuscript text here..."
             required
@@ -177,7 +93,7 @@ export default function InputForm() {
           {/* Exemplary Chapters */}
           <div className="mb-4">
             <label className="block text-sm font-medium mb-2">Exemplary Chapters</label>
-            {input.sensory_baseline.exemplary_chapters.map((chapter, index) => (
+            {input.sensory_baseline.exemplary_chapters.map((chapter: string, index: number) => (
               <div key={index} className="flex gap-2 mb-2">
                 <input
                   type="text"
@@ -252,12 +168,84 @@ export default function InputForm() {
 
       {/* Results */}
       {results && (
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-4">Audit Results</h2>
-          {/* Display results here */}
-          <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96">
-            {JSON.stringify(results, null, 2)}
-          </pre>
+        <div className="mt-8 space-y-8">
+          <h2 className="text-2xl font-bold border-b pb-2">Audit Results</h2>
+          
+          {/* Summary Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-green-50 rounded shadow-sm border border-green-100">
+              <div className="text-sm text-green-600 font-semibold uppercase">Baseline Met</div>
+              <div className="text-3xl font-bold">{results.summary.chapters_at_baseline} Chapters</div>
+            </div>
+            <div className="p-4 bg-red-50 rounded shadow-sm border border-red-100">
+              <div className="text-sm text-red-600 font-semibold uppercase">Below Baseline</div>
+              <div className="text-3xl font-bold">{results.summary.chapters_below_baseline.length} Chapters</div>
+            </div>
+            <div className="p-4 bg-blue-50 rounded shadow-sm border border-blue-100">
+              <div className="text-sm text-blue-600 font-semibold uppercase">Baseline Score</div>
+              <div className="text-3xl font-bold">{results.sensory_fingerprint.baseline_richness_score.toFixed(1)}/10</div>
+            </div>
+          </div>
+
+          <div className="p-4 bg-gray-50 rounded border italic text-gray-700">
+            <strong>Key Insight:</strong> {results.summary.consistent_weak_points}
+          </div>
+
+          {/* Scorecard Table */}
+          <div>
+            <h3 className="text-xl font-semibold mb-3">Richness Scorecard</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="p-2 border">Chapter</th>
+                    <th className="p-2 border">Section</th>
+                    <th className="p-2 border">Score</th>
+                    <th className="p-2 border">Status</th>
+                    <th className="p-2 border">Gaps</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.richness_scorecard.map((row: RichnessScorecard, idx: number) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="p-2 border font-medium">{row.chapter}</td>
+                      <td className="p-2 border text-sm text-gray-600">{row.section}</td>
+                      <td className="p-2 border font-mono">{row.your_score.toFixed(1)}</td>
+                      <td className={`p-2 border font-bold ${
+                        row.status.includes("GREEN") ? "text-green-600" : 
+                        row.status.includes("YELLOW") ? "text-yellow-600" : "text-red-600"
+                      }`}>
+                        {row.status}
+                      </td>
+                      <td className="p-2 border text-xs italic text-gray-500">
+                        {row.key_sensory_gaps.length > 0 ? row.key_sensory_gaps.join(", ") : "None"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Metadata Display */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="p-4 border rounded">
+                <h4 className="font-bold mb-2">Primary Senses</h4>
+                <div className="flex flex-wrap gap-2">
+                  {results.sensory_fingerprint.favored_senses.map((sense: string) => (
+                    <span key={sense} className="px-2 py-1 bg-gray-200 rounded text-sm capitalize">{sense}</span>
+                  ))}
+                </div>
+             </div>
+             <div className="p-4 border rounded">
+                <h4 className="font-bold mb-2">Style Fingerprint</h4>
+                <ul className="text-sm space-y-1">
+                  <li><span className="text-gray-500">Syntax:</span> {results.sensory_fingerprint.syntax_signature}</li>
+                  <li><span className="text-gray-500">Vocab:</span> {results.sensory_fingerprint.vocabulary_preference}</li>
+                  <li><span className="text-gray-500">Metaphors:</span> {results.sensory_fingerprint.metaphor_type}</li>
+                </ul>
+             </div>
+          </div>
         </div>
       )}
     </div>
