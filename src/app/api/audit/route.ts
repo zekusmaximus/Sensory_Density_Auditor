@@ -7,7 +7,7 @@ const auditSchema = z.object({
   manuscript_text: z.string().min(10).max(1000000), // Max 1M characters (~150k words) for rudimentary DoS protection
   sensory_baseline: z.object({
     exemplary_chapters: z.array(z.string()),
-    richness_threshold: z.number().min(1).max(20),
+    richness_threshold: z.number().min(1).max(10),
     target_sensory_palette: z.record(z.string(), z.string()).optional(),
   }),
   chapters_flagged_for_enrichment: z.array(z.object({
